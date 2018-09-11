@@ -7,23 +7,28 @@
 <body>
   <div>
     Enter country code (e.g. +1):
-    <input type="text" id="country_code" />
+    <input type="text" id="country_code" value="+84" />
     Enter phone number without spaces (e.g. 444555666):
-    <input type="text" id="phone_num"/>
+    <input type="text" id="phone_num" value="1232616154"/>
     <button onclick="phone_btn_onclick();">Login via SMS</button>
     Enter email address
     <input type="text" id="email"/>
     <button onclick="email_btn_onclick();">Login via Email</button>
   </div>
 
-  <form id="my_form" name="my_form" action="/sendcode" method="POST" style="display: none;">
-    <input type="text" id="code" name="code">
-    <input type="text" id="csrf_nonce" name="csrf_nonce">
-    <input type="submit" value="Submit">
+  <h3>Data from Facebook Server:</h3>
+  <form id="my_form" name="my_form" action="/sendcode" method="POST">
+    <input type="text" id="code" name="code" style="display: none;">
+    <input type="text" id="csrf_nonce" name="csrf_nonce" style="display: none;">
+    <h4>code:</h4>
+    <div id="display_code"></div>
+    <h4>csrf:</h4>
+    <div id="display_csrf_nonce"></div>
+    <input type="submit" value="Submit Code">
   </form>
 
   <!--  -->
-  <script src="https://sdk.accountkit.com/zh_TW/sdk.js"></script>
+  <script src="https://sdk.accountkit.com/vi_VN/sdk.js"></script>
   <script>
     // initialize Account Kit with CSRF protection
     AccountKit_OnInteractive = function(){
@@ -43,7 +48,9 @@
       if (response.status === "PARTIALLY_AUTHENTICATED") {
         document.getElementById("code").value = response.code;
         document.getElementById("csrf_nonce").value = response.state;
-        document.getElementById("my_form").submit();
+        document.getElementById("display_code").innerHTML = response.code;
+        document.getElementById("display_csrf_nonce").innerHTML = response.state;
+        //document.getElementById("my_form").submit();
       }
       else if (response.status === "NOT_AUTHENTICATED") {
         // handle authentication failure

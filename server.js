@@ -5,20 +5,23 @@ const bodyParser = require("body-parser");
 const Mustache  = require('mustache');
 const Request  = require('request');
 const Querystring  = require('querystring');
+const config = require('./config');
+var crypto = require('crypto');
+
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 var csrf_guid = Guid.raw();
-const api_version = 'v1.0';
 
-const app_id = process.env.FACEBOOK_APP_ID || 'YOUR_FACEBOOK_APP_ID';
-const app_secret = process.env.FACEBOOK_ACCOUNT_KIT_SECRET || 'YOUR_FACEBOOK_ACCOUNT_KIT_SECRET';
+const api_version = 'v1.3';
+const app_id = process.env.FACEBOOK_APP_ID || '317993418749191';
+const app_secret = process.env.FACEBOOK_ACCOUNT_KIT_SECRET || 'e24f9577744033f297f78ea22f678b77';
 
-const me_endpoint_base_url = 'https://graph.accountkit.com/v1.0/me';
-const token_exchange_base_url = 'https://graph.accountkit.com/v1.0/access_token';
-const account_kit_api_version = api_version;
+const me_endpoint_base_url = `https://graph.accountkit.com/${api_version}/me`;
+const token_exchange_base_url = `https://graph.accountkit.com/${api_version}/access_token`;
+
 
 function loadLogin() {
   return fs.readFileSync('dist/login.html').toString();
@@ -28,9 +31,9 @@ app.get('/', function(request, response){
   var view = {
     appId: app_id,
     csrf: csrf_guid,
-    version: account_kit_api_version,
+    version: api_version,
   };
-
+  console.log(view);
   var html = Mustache.to_html(loadLogin(), view);
   response.send(html);
 });
@@ -40,7 +43,8 @@ function loadLoginSuccess() {
 }
 
 app.post('/sendcode', function(request, response){
-  console.log('code: ' + request.body.code);
+
+  console.log(request.body);
 
   // CSRF check
   if (request.body.csrf_nonce === csrf_guid) {
@@ -53,17 +57,33 @@ app.post('/sendcode', function(request, response){
 
     // exchange tokens
     var token_exchange_url = token_exchange_base_url + '?' + Querystring.stringify(params);
+
+    console.log("token_exchange_url" , token_exchange_url);
+
     Request.get({url: token_exchange_url, json: true}, function(err, resp, respBody) {
+      // console.log(respBody);
       var view = {
         user_access_token: respBody.access_token,
         expires_at: respBody.expires_at,
         user_id: respBody.id,
+        code : request.body.code
       };
 
+      var hmac = crypto.createHmac('sha256', app_secret);
+      hmac.update(respBody.access_token);
+      let appsecret_proof = hmac.digest("hex"); 
+     
+     
       // get account details at /me endpoint
-      var me_endpoint_url = me_endpoint_base_url + '?access_token=' + respBody.access_token;
+      var me_endpoint_url = me_endpoint_base_url + '?access_token=' + respBody.access_token + "&appsecret_proof=" + appsecret_proof;
+
+      console.log("me_endpoint_url" , me_endpoint_url);
+
       Request.get({url: me_endpoint_url, json:true }, function(err, resp, respBody) {
         // send login_success.html
+
+        console.log(respBody);
+
         if (respBody.phone) {
           view.phone_num = respBody.phone.number;
         } else if (respBody.email) {
@@ -71,6 +91,7 @@ app.post('/sendcode', function(request, response){
         }
         var html = Mustache.to_html(loadLoginSuccess(), view);
         response.send(html);
+        
       });
     });
   }
@@ -82,4 +103,8 @@ app.post('/sendcode', function(request, response){
 });
 
 
-app.listen(process.env.PORT || 8080);
+app.listen(process.env.PORT || 3333);
+
+const listener = app.listen(process.env.PORT || config.port, process.env.ADDRESS || config.address, () => {
+  console.log('Server listening at: ' + listener.address().address + ':' + listener.address().port);
+});
